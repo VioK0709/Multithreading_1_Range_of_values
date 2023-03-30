@@ -1,18 +1,20 @@
 import java.util.*;
+import java.util.concurrent.*;
 
 public class Main {
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
         System.out.println("Создаю потоки...");
         String[] texts = new String[25];
         for (int i = 0; i < texts.length; i++) {
             texts[i] = generateText("aab", 30_000);
         }
 
+        ExecutorService es = Executors.newFixedThreadPool(25);
         long startTs = System.currentTimeMillis(); // start time
-        List<Thread> threads = new ArrayList<>(); // для хранения создаваемых потоков
+        List<Future<String>> futures = new ArrayList<>();
         for (String text : texts) {
-            Thread threadAll = new Thread(() -> { // создали поток, передали в конструктор реализацию лямбдой интерфейса Runnable
+            Future<String> f = es.submit(() -> {
                 int maxSize = 0;
                 for (int i = 0; i < text.length(); i++) {
                     for (int j = 0; j < text.length(); j++) {
@@ -29,20 +31,24 @@ public class Main {
                         if (!bFound && maxSize < j - i) {
                             maxSize = j - i;
                         }
+
                     }
                 }
+
                 System.out.println(text.substring(0, 100) + " -> " + maxSize);
+                return text;
             });
-            threads.add(threadAll); // положили созданный объект потока в список потоков
-            threadAll.start(); // запуск потока
+
+            futures.add(f);
+        }
+        for (Future<String> future1 : futures) {
+            future1.get();
         }
 
-        for (Thread thread : threads) {
-            thread.join(); // зависаем, ждём когда поток, объект которого лежит в thread завершится
-        }
+
         long endTs = System.currentTimeMillis(); // end time
-
         System.out.println("Time: " + (endTs - startTs) + "ms");
+        es.shutdown();
     }
 
     public static String generateText(String letters, int length) {
